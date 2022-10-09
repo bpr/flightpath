@@ -17,7 +17,7 @@ async fn main() -> std::io::Result<()> {
             .route("/calculate", web::get().to(get_itinerary))
             .route("/termini", web::post().to(post_termini))
     });
-    println!("Serving on http://localhost:8080");
+    println!("Serving on http://localhost:8080/calculate");
     server
         .bind("127.0.0.1:8080")
         .expect("error binding service to address")
