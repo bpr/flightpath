@@ -35,8 +35,6 @@ fn to_stringpairs(value: Value) -> Result<Vec<(String, String)>, String> {
     }
 }
 
-
-
 fn to_js_stringpair(stringpair: (String, String)) -> Value {
     let (s0, s1) = stringpair;
     Value::Array(vec![Value::String(s0), Value::String(s1)])

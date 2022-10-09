@@ -49,7 +49,11 @@ async fn post_termini(form: web::Form<ItineraryParams>) -> impl Responder {
         "The terminal locations of {} \
                  are <b>{}</b>\n",
         form.itinerary,
-        if res.is_ok() { res.unwrap() } else { "Invalid itinerary".to_string() }
+        if res.is_ok() {
+            res.unwrap()
+        } else {
+            "Invalid itinerary".to_string()
+        }
     );
 
     HttpResponse::Ok().content_type("text/html").body(response)
