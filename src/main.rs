@@ -1,64 +1,64 @@
-use actix_web::{web, App, HttpResponse, HttpServer};
+use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 use serde::Deserialize;
 use serde_json::Value;
+use std::error;
+
+type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
 
 #[derive(Deserialize)]
 struct ItineraryParams {
     itinerary: String,
 }
 
-fn main() {
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
     let server = HttpServer::new(|| {
         App::new()
-        .route("/calculate", web::get().to(get_itinerary))
-        .route("/endpoints", web::post().to(post_endpoints))
+            .route("/calculate", web::get().to(get_itinerary))
+            .route("/termini", web::post().to(post_termini))
     });
     println!("Serving on http://localhost:8080");
     server
-        .bind("127.0.0.1:8080").expect("error binding service to address")
-        .run().expect("error running server");
+        .bind("127.0.0.1:8080")
+        .expect("error binding service to address")
+        .run()
+        .await
 }
 
-fn get_itinerary() -> HttpResponse {
-    HttpResponse::Ok()
-        .content_type("text/html")
-        .body(
-            r#"
+async fn get_itinerary() -> impl Responder {
+    HttpResponse::Ok().content_type("text/html").body(
+        r#"
                 <title>Itinerary Calculator</title>
-                <form action="/endpoints" method="post">
+                <form action="/termini" method="post">
                 <input type="text" name="itinerary"/>
-                <button type="submit">Compute start and end</button>
+                <button type="submit">Calculate termini</button>
                 </form>
             "#,
-        )
+    )
 }
 
-fn post_endpoints(form: web::Form<ItineraryParams>) -> HttpResponse {
-    if form.itinerary.len() == 0 {
+async fn post_termini(form: web::Form<ItineraryParams>) -> impl Responder {
+    if form.itinerary.is_empty() {
         return HttpResponse::BadRequest()
             .content_type("text/html")
             .body("Empty itinerary.");
     }
 
-    let response =
-        format!("The start and end locations of {} \
-                 is <b>{}</b>\n",
-                form.itinerary,
-                calculate_itinerary(form.itinerary.clone()));
+    let res = calculate_itinerary(form.itinerary.clone());
+    let response = format!(
+        "The terminal locations of {} \
+                 are <b>{}</b>\n",
+        form.itinerary,
+        if res.is_ok() { res.unwrap() } else { "Invalid itinerary".to_string() }
+    );
 
-    HttpResponse::Ok()
-        .content_type("text/html")
-        .body(response)
+    HttpResponse::Ok().content_type("text/html").body(response)
 }
 
-
-fn calculate_itinerary(s: String) -> String {
-    if s.len() == 0 || s.len() == 2 {
-        return "Empty itinerary".to_string();
-    }
-    let js_str = s.replace("'", "\"");
-    let js_val: Value = serde_json::from_str(&js_str).unwrap();
-    let endpoints = flightpath::js_itinerary_endpoints(js_val).unwrap();
-    let endpoints_str = serde_json::to_string(&endpoints).unwrap();
-    endpoints_str.replace("\"", "'")
+fn calculate_itinerary(s: String) -> Result<String> {
+    let js_str = s.replace('\'', "\"");
+    let js_val: Value = serde_json::from_str(&js_str)?;
+    let termini = flightpath::js_itinerary_termini(js_val)?;
+    let termini_str = serde_json::to_string(&termini)?;
+    Ok(termini_str.replace('\"', "\'"))
 }

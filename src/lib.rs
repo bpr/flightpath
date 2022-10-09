@@ -1,36 +1,41 @@
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashMap, HashSet};
 
 use itertools::all;
 use serde_json::Value;
 
 fn to_stringpair_opt(value: Value) -> Option<(String, String)> {
     match value {
-        Value::Array(vec) => {
-            match vec.as_slice() {
-                [Value::String(s0), Value::String(s1)]
-                    if s0.len() > 0 && s1.len() > 0 =>
-                        Some((s0.to_string(), s1.to_string())),
-                _ => None, 
+        Value::Array(vec) => match vec.as_slice() {
+            [Value::String(s0), Value::String(s1)] if !s0.is_empty() && !s1.is_empty() => {
+                Some((s0.to_string(), s1.to_string()))
             }
-        }
+            _ => None,
+        },
         _ => None,
     }
 }
 
 fn to_stringpairs(value: Value) -> Result<Vec<(String, String)>, String> {
     match value {
-        Value::Array(vec) if vec.len() > 0 => {
+        Value::Array(vec) if !vec.is_empty() => {
             let opt_pairs: Vec<Option<(String, String)>> =
-               vec.into_iter().map(|elt| to_stringpair_opt(elt)).collect();
-            if all(opt_pairs.clone(), |elt: Option<(String, String)>| elt.is_some()) {
-                Ok(opt_pairs.into_iter().map(|elt: Option<(String, String)>| elt.unwrap()).collect())
+                vec.into_iter().map(to_stringpair_opt).collect();
+            if all(opt_pairs.clone(), |elt: Option<(String, String)>| {
+                elt.is_some()
+            }) {
+                Ok(opt_pairs
+                    .into_iter()
+                    .map(|elt: Option<(String, String)>| elt.unwrap())
+                    .collect())
             } else {
                 Err("some invalid entries".to_string())
-            }  
-        },
+            }
+        }
         _ => Err("value is not an array".to_string()),
     }
 }
+
+
 
 fn to_js_stringpair(stringpair: (String, String)) -> Value {
     let (s0, s1) = stringpair;
@@ -38,7 +43,7 @@ fn to_js_stringpair(stringpair: (String, String)) -> Value {
 }
 
 fn to_js_itinerary(vec: Vec<(String, String)>) -> Value {
-    Value::Array(vec.into_iter().map(|elt| to_js_stringpair(elt)).collect())
+    Value::Array(vec.into_iter().map(to_js_stringpair).collect())
 }
 
 fn itinerary_sort(vec: Vec<(String, String)>) -> Result<Vec<(String, String)>, String> {
@@ -48,13 +53,10 @@ fn itinerary_sort(vec: Vec<(String, String)>) -> Result<Vec<(String, String)>, S
     // not, there's an error
 
     let mut res: Vec<(String, String)> = Vec::new();
-    let from_locs: HashSet<String> =
-        HashSet::from_iter(vec.iter().map(|elt| elt.0.clone()));
-    let to_locs: HashSet<String> =
-        HashSet::from_iter(vec.iter().map(|elt| elt.1.clone()));
-    let mut unordered: HashMap<String, String> =
-        HashMap::from_iter(vec.clone().into_iter());
- 
+    let from_locs: HashSet<String> = HashSet::from_iter(vec.iter().map(|elt| elt.0.clone()));
+    let to_locs: HashSet<String> = HashSet::from_iter(vec.iter().map(|elt| elt.1.clone()));
+    let mut unordered: HashMap<String, String> = HashMap::from_iter(vec.into_iter());
+
     let mut first_loc: Option<String> = None;
 
     for from in from_locs.iter() {
@@ -87,12 +89,11 @@ pub fn js_itinerary_sort(value: Value) -> Result<Value, String> {
     Ok(to_js_itinerary(sorted))
 }
 
-pub fn js_itinerary_endpoints(value: Value) -> Result<Value, String> {
+pub fn js_itinerary_termini(value: Value) -> Result<Value, String> {
     let pairs = to_stringpairs(value)?;
     let sorted = itinerary_sort(pairs)?;
-    let endpoints =
-        vec![(sorted[0].0.clone(), sorted[sorted.len() - 1].1.clone())];
-    Ok(to_js_itinerary(endpoints))
+    let termini = vec![(sorted[0].0.clone(), sorted[sorted.len() - 1].1.clone())];
+    Ok(to_js_itinerary(termini))
 }
 
 #[cfg(test)]
@@ -120,7 +121,7 @@ mod tests {
         let data1s = r#"
     [["SFO", "ATL"], ["ATL", "EWR"]] 
     "#;
-    assert_json_eq!(v1s, serde_json::from_str::<Value>(data1s).unwrap());
+        assert_json_eq!(v1s, serde_json::from_str::<Value>(data1s).unwrap());
     }
 
     #[test]
